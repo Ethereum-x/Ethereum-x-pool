@@ -837,7 +837,9 @@ func convertCandidateResults(raw *redis.ZSliceCmd) []*BlockData {
 		block.Difficulty, _ = strconv.ParseInt(fields[4], 10, 64)
 		block.TotalShares, _ = strconv.ParseInt(fields[5], 10, 64)
 		block.candidateKey = v.Member.(string)
+		if block.Uncle ==false {
 		result = append(result, &block)
+		}
 	}
 	return result
 }
@@ -862,7 +864,9 @@ func convertBlockResults(rows ...*redis.ZSliceCmd) []*BlockData {
 			block.RewardString = fields[7]
 			block.ImmatureReward = fields[7]
 			block.immatureKey = v.Member.(string)
+			if  block.Uncle == false {
 			result = append(result, &block)
+			}
 		}
 	}
 	return result
