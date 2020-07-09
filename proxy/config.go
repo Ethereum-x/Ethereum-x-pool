@@ -52,6 +52,9 @@ type Stratum struct {
 	Listen  string `json:"listen"`
 	Timeout string `json:"timeout"`
 	MaxConn int    `json:"maxConn"`
+	TLS      bool   `json:"tls"`
+	CertFile string `json:"certFile"`
+	KeyFile  string `json:"keyFile"`
 }
 
 type Upstream struct {

@@ -550,6 +550,10 @@ func (r *RedisClient) WritePendingOrphans(blocks []*BlockData) error {
 
 func (r *RedisClient) writeImmatureBlock(tx *redis.Multi, block *BlockData) {
 	// Redis 2.8.x returns "ERR source and destination objects are the same"
+	if block!= nil && block.Uncle {
+		//remove uncle
+		return
+	}
 	if block.Height != block.RoundHeight {
 		tx.Rename(r.formatRound(block.RoundHeight, block.Nonce), r.formatRound(block.Height, block.Nonce))
 	}
@@ -790,7 +794,7 @@ func (r *RedisClient) CollectLuckStats(windows []int) (map[string]interface{}, e
 				break
 			}
 			if block.Uncle {
-				uncles++
+				//uncles++
 			}
 			if block.Orphan {
 				orphans++

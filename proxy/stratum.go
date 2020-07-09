@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bufio"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"io"
@@ -17,14 +18,21 @@ const (
 )
 
 func (s *ProxyServer) ListenTCP() {
-	timeout := util.MustParseDuration(s.config.Proxy.Stratum.Timeout)
-	s.timeout = timeout
+	s.timeout = util.MustParseDuration(s.config.Proxy.Stratum.Timeout)
 
-	addr, err := net.ResolveTCPAddr("tcp", s.config.Proxy.Stratum.Listen)
+	var err error
+	var server net.Listener
+	if s.config.Proxy.Stratum.TLS {
+		var cert tls.Certificate
+		cert, err = tls.LoadX509KeyPair(s.config.Proxy.Stratum.CertFile, s.config.Proxy.Stratum.KeyFile)
 	if err != nil {
-		log.Fatalf("Error: %v", err)
+			log.Fatalln("Error loading certificate:", err)
 	}
-	server, err := net.ListenTCP("tcp", addr)
+		tlsCfg := &tls.Config{Certificates: []tls.Certificate{cert}}
+		server, err = tls.Listen("tcp", s.config.Proxy.Stratum.Listen, tlsCfg)
+	} else {
+		server, err = net.Listen("tcp", s.config.Proxy.Stratum.Listen)
+	}
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
@@ -35,11 +43,10 @@ func (s *ProxyServer) ListenTCP() {
 	n := 0
 
 	for {
-		conn, err := server.AcceptTCP()
+		conn, err := server.Accept()
 		if err != nil {
 			continue
 		}
-		conn.SetKeepAlive(true)
 
 		ip, _, _ := net.SplitHostPort(conn.RemoteAddr().String())
 
@@ -169,7 +176,7 @@ func (cs *Session) sendTCPError(id json.RawMessage, reply *ErrorReply) error {
 	return errors.New(reply.Message)
 }
 
-func (self *ProxyServer) setDeadline(conn *net.TCPConn) {
+func (self *ProxyServer) setDeadline(conn net.Conn) {
 	conn.SetDeadline(time.Now().Add(self.timeout))
 }
 

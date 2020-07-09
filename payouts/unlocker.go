@@ -28,15 +28,25 @@ type UnlockerConfig struct {
 	Timeout        string  `json:"timeout"`
 }
 
+const MINER_RATE = 0.50
+// for etx reward
+var (
+	eth1 = big.NewInt(1e18)
+	StartMineTime = time.Date(2020,04, 7, 0, 8, 8, 8, time.UTC)
+	Year1_BlockReward = []*big.Int {eth1.Mul(eth1, big.NewInt(10)), big.NewInt((5e+18)), big.NewInt((5e+18)),
+		big.NewInt((2.5e+18)), big.NewInt((2.5e+18)), big.NewInt((1.25e+18)), big.NewInt((1.25e+18)),
+		big.NewInt((0.75e+18)), big.NewInt((0.75e+18)) }
+	TotalAccounts = map[string]*big.Int{}
+)
 const minDepth = 16
 const byzantiumHardForkHeight = 4370000
 
-var homesteadReward = math.MustParseBig256("5000000000000000000")
-var byzantiumReward = math.MustParseBig256("3000000000000000000")
+var homesteadReward = math.MustParseBig256("4000000000000000000")
+var byzantiumReward = math.MustParseBig256("0000000000000000000")
 
 // Donate 10% from pool fees to developers
-const donationFee = 10.0
-const donationAccount = "0xb85150eb365e7df0941f0cf08235f987ba91506a"
+const donationFee = 10.0 
+const donationAccount = "0x37f22378634a6EA1B47016B27aA68dAbb12d4696" //
 
 type BlockUnlocker struct {
 	config   *UnlockerConfig
@@ -253,7 +263,7 @@ func (u *BlockUnlocker) unlockPendingBlocks() {
 		return
 	}
 
-	current, err := u.rpc.GetPendingBlock()
+	current, err := u.rpc.GetLatestBlock()
 	if err != nil {
 		u.halt = true
 		u.lastFail = err
@@ -351,7 +361,7 @@ func (u *BlockUnlocker) unlockAndCreditMiners() {
 		return
 	}
 
-	current, err := u.rpc.GetPendingBlock()
+	current, err := u.rpc.GetLatestBlock()
 	if err != nil {
 		u.halt = true
 		u.lastFail = err
@@ -502,18 +512,34 @@ func weiToShannonInt64(wei *big.Rat) int64 {
 }
 
 func getConstReward(height int64) *big.Int {
-	if height >= byzantiumHardForkHeight {
-		return new(big.Int).Set(byzantiumReward)
+
+	currentTime:= time.Now()
+	log.Println(currentTime.Local() , StartMineTime.Local())
+	if currentTime.UTC().Unix() > (StartMineTime.Unix()) {
+		years:= time.Now().Year() - StartMineTime.Year()
+		if years >= len(Year1_BlockReward) {
+			years = len(Year1_BlockReward) -1
+		}else if years < 0 {
+			years = 0
+		}
+		blockReward := new(big.Int).Set(Year1_BlockReward[years])
+		fblockReward:= float64(blockReward.Uint64())
+		fblockReward4 := fblockReward*MINER_RATE
+		blockReward4 := big.NewInt(int64(fblockReward4))//temp_blockReward.Sub(&temp_blockReward, iteamReward)
+		log.Println("getConstReward Year1_BlockReward", years, Year1_BlockReward[years].String(), blockReward4)
+		return new(big.Int).Set(blockReward4);
 	}
 	return new(big.Int).Set(homesteadReward)
 }
 
 func getRewardForUncle(height int64) *big.Int {
+	return big.NewInt(0) // for remove uncle block reward .
 	reward := getConstReward(height)
 	return new(big.Int).Div(reward, new(big.Int).SetInt64(32))
 }
 
 func getUncleReward(uHeight, height int64) *big.Int {
+	return big.NewInt(0) // for remove uncle block reward .
 	reward := getConstReward(height)
 	k := height - uHeight
 	reward.Mul(big.NewInt(8-k), reward)
@@ -536,5 +562,6 @@ func (u *BlockUnlocker) getExtraRewardForTx(block *rpc.GetBlockReply) (*big.Int,
 			amount.Add(amount, fee)
 		}
 	}
+	log.Println("getExtraRewardForTx", amount.String())
 	return amount, nil
 }
